@@ -1,0 +1,55 @@
+cliserver
+=========
+A libevent-based server that handles simple commands from multiple clients.
+Created while learning to use libevent, this is intended to help alleviate the
+relative dearth of libevent sample code.  See the reasonably-well-commented
+source code for additional information, and feel free to borrow the macros at
+the beginning of cliserver.c (though if you think they're useful, credit would
+be appreciated).
+
+This code has been tested not to leak memory or file descriptors under a
+variety of conditions using valgrind.
+
+Note that evbuffer_readline() is a potential source of denial of service, as it
+does an O(n) scan for a newline character each time it is called.  One solution
+would be checking the length of the buffer and dropping the connection if the
+buffer exceeds some limit (dropping the data is less desirable, as the client
+is clearly not speaking our protocol anyway).  Another (more ideal) solution
+would be starting the newline search at the end of the existing buffer.  The
+server won't crash with really long lines within the limits of system RAM
+(tested using lines up to 1GB in length), it just runs slowly.
+
+Clients connect to the server on port 14310, allowing them to run the following
+commands:
+
+ * echo:	Print the command line.
+ * help:	Print a list of commands and their descriptions.
+ * info:	Print connection information.
+ * quit:	Disconnect from the server.
+ * kill:	Shut down the server.
+
+A sample client interaction:
+
+    > help
+    echo:	Prints the command line.
+    help:	Prints a list of commands and their descriptions.
+    info:	Prints connection information.
+    quit:	Disconnects from the server.
+    kill:	Shuts down the server.
+    > info
+    Client address: ::1
+    Client port: 60642
+    > echo This is just a simple test program.
+    This is just a simple test program.
+    > quit
+    
+Compiling cliserver
+-------------------
+Compile the server with `make`, run it with `./cliserver`.  Connect to the
+server using netcat: `nc localhost 14310`.
+
+This example should work with either libevent 1.x or libevent 2.x.
+
+Copyright
+---------
+(C)2010 Mike Bourgeous, licensed under 2-clause BSD
