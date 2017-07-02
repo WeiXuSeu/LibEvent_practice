@@ -42,9 +42,13 @@
 #include <event.h>
 
 
-// Behaves similarly to printf(...), but adds file, line, and function
-// information.  I omit do ... while(0) because I always use curly braces in my
-// if statements.
+/* Behaves similarly to printf(...), but adds file, line, and function information.  
+   I omit do ... while(0) because I always use curly braces in my if statements.
+   
+   A macro can be declared to accept a variable number of arguments much as a function can. 
+   The syntax for defining the macro is similar to that of a function. Here is an example:
+   #define eprintf(бн) fprintf (stderr, __VA_ARGS__)
+*/
 #define INFO_OUT(...) {\
 	printf("%s:%d: %s():\t", __FILE__, __LINE__, __FUNCTION__);\
 	printf(__VA_ARGS__);\
@@ -256,6 +260,7 @@ static int set_nonblock(int fd)
 	int flags;
 
 	flags = fcntl(fd, F_GETFL);
+	//F_GETFL: Read the file descriptor flags.
 	if(flags == -1) {
 		ERRNO_OUT("Error getting flags on fd %d", fd);
 		return -1;
@@ -475,21 +480,42 @@ int main(int argc, char *argv[])
 	
 	unsigned short listenport = 14310;
 	struct sockaddr_in6 local_addr;
+	// IPv6 sockaddr
 	int listenfd;
 
 	// Set signal handlers
 	sigset_t sigset;
+	//All of the signal blocking functions use a data structure called a signal set to specify what signals are affected.
+	//The sigset_t data type is used to represent a signal set.
 	sigemptyset(&sigset);
 	struct sigaction siginfo = {
 		.sa_handler = sighandler,
 		.sa_mask = sigset,
 		.sa_flags = SA_RESTART,
 	};
+	/*
+	Function: int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+	The sigaction() system call is used to change the action taken by a process on receipt of a specific signal.
+	signum specifies the signal and can be any valid signal except SIGKILL and SIGSTOP.
+	If act is non-NULL, the new action for signal signum is installed from act.  
+	If oldact is non-NULL, the previous action is saved in oldact.
+
+	Struct: sigaction. sa_handler specifies the action to be associated with signum and may be SIG_DFL for the default action, 
+	SIG_IGN to ignore this signal, or a pointer to a signal handling function.  This function receives the signal number as 
+	its only argument.
+	sa_flags specifies a set of flags which modify the behavior of the signal. SA_RESTART: Provide behavior compatible with 
+	BSD signal semantics by making certain system calls restartable across signals.
+	*/
 	sigaction(SIGINT, &siginfo, NULL);
 	sigaction(SIGTERM, &siginfo, NULL);
 
 	// Initialize libevent
 	INFO_OUT("libevent version: %s\n", event_get_version());
+	//ERROR_OUT() function test
+	ERROR_OUT("ERROR_OUT() function test.\n");
+	//ERRNO_OUT() function test
+	ERRNO_OUT("ERRNO_OUT() function test");
+	
 	evloop = event_base_new();
 	if(CHECK_NULL(evloop)) {
 		ERROR_OUT("Error initializing event loop.\n");
@@ -502,7 +528,9 @@ int main(int argc, char *argv[])
 	memset(&local_addr, 0, sizeof(local_addr));
 	local_addr.sin6_family = AF_INET6;
 	local_addr.sin6_port = htons(listenport);
+	//The htons() function converts the unsigned short integer hostshort from host byte order to network byte order.
 	local_addr.sin6_addr = in6addr_any;
+	//source addr can be any
 
 	// Begin listening for connections
 	listenfd = socket(AF_INET6, SOCK_STREAM, 0);
@@ -511,10 +539,18 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	int tmp_reuse = 1;
+	/*int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+	When manipulating socket options, the level at which the option resides and the name of the option must be specified. 
+	To manipulate options at the sockets API level, level is specified as SOL_SOCKET. 
+	To manipulate options at any other level the protocol number of the appropriate protocol controlling the option is supplied. 
+	For example, to indicate that an option is to be interpreted by the TCP protocol, level should be set to the protocol number of TCP; 
+	The arguments optval and optlen are used to access option values for setsockopt()
+	*/
 	if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &tmp_reuse, sizeof(tmp_reuse))) {
 		ERRNO_OUT("Error enabling socket address reuse on listening socket");
 		return -1;
 	}
+	//
 	if(bind(listenfd, (struct sockaddr *)&local_addr, sizeof(local_addr))) {
 		ERRNO_OUT("Error binding listening socket");
 		return -1;
@@ -523,6 +559,11 @@ int main(int argc, char *argv[])
 		ERRNO_OUT("Error listening to listening socket");
 		return -1;
 	}
+	/*int listen(int sockfd, int backlog)
+	The backlog argument defines the maximum length to which the queue of pending connections for sockfd may grow. 
+	If a connection request arrives when the queue is full, the client may receive an error with an indication of ECONNREFUSED or,
+	if the underlying protocol supports retransmission, the request may be ignored so that a later reattempt at connection succeeds.
+	*/
 
 	// Set socket for non-blocking I/O
 	if(set_nonblock(listenfd)) {
@@ -532,6 +573,10 @@ int main(int argc, char *argv[])
 
 	// Add an event to wait for connections
 	event_set(&connect_event, listenfd, EV_READ | EV_PERSIST, cmd_connect, evloop);
+	/*void event_set(struct event *ev, int fd, short events, void (*callback)(int, short, void *), void *arg)
+	Prepares the event to be used in event_add(). The event is prepared to call the function specified by the callback on the events specified in parameter events,
+	which is a set of the following flags: EV_TIMEOUT, EV_SIGNAL, EV_READ, EV_WRITE and EV_PERSIST.
+	*/
 	event_base_set(evloop, &connect_event);
 	if(event_add(&connect_event, NULL)) {
 		ERROR_OUT("Error scheduling connection event on the event loop.\n");
