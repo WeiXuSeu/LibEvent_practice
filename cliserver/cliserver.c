@@ -38,7 +38,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-//#include <event.h>
 #include <event.h>
 
 
@@ -56,6 +55,7 @@
 
 // Behaves similarly to fprintf(stderr, ...), but adds file, line, and function
 // information.
+// \e color settint in terminal: http://jafrog.com/2013/11/23/colors-in-terminal.html
 #define ERROR_OUT(...) {\
 	fprintf(stderr, "\e[0;1m%s:%d: %s():\t", __FILE__, __LINE__, __FUNCTION__);\
 	fprintf(stderr, __VA_ARGS__);\
@@ -64,6 +64,7 @@
 
 // Behaves similarly to perror(...), but supports printf formatting and prints
 // file, line, and function information.
+//
 #define ERRNO_OUT(...) {\
 	fprintf(stderr, "\e[0;1m%s:%d: %s():\t", __FILE__, __LINE__, __FUNCTION__);\
 	fprintf(stderr, __VA_ARGS__);\
@@ -131,6 +132,10 @@ static void echo_func(struct cmdsocket *cmdsocket, struct command *command, cons
 {
 	INFO_OUT("%s %s\n", command->name, params);
 	evbuffer_add_printf(cmdsocket->buffer, "%s\n", params);
+	/*
+	int evbuffer_add_printf (	struct evbuffer * buf, const char *	fmt, ...)		
+	Append a formatted string to the end of an evbuffer.
+	*/
 }
 
 static void help_func(struct cmdsocket *cmdsocket, struct command *command, const char *params)
@@ -303,6 +308,10 @@ static void flush_cmdsocket(struct cmdsocket *cmdsocket)
 	if(bufferevent_write_buffer(cmdsocket->buf_event, cmdsocket->buffer)) {
 		ERROR_OUT("Error sending data to client on fd %d\n", cmdsocket->fd);
 	}
+	/*int bufferevent_write_buffer(struct bufferevent *bufev, struct evbuffer *buf);
+	These functions add data to a bufferevent's output buffer.
+	Calling bufferevent_write_buffer() removes the entire contents of buf and puts them at the end of the output buffer. 
+	*/
 }
 
 static void process_command(size_t len, char *cmdline, struct cmdsocket *cmdsocket)
@@ -312,8 +321,21 @@ static void process_command(size_t len, char *cmdline, struct cmdsocket *cmdsock
 	int i;
 
 	// Skip leading whitespace, then find command name
+	/*size_t strspn(const char *str, const char * accept): calculates the length of the initial segment of str which consists entirely of characters in accept.
+	size_t strcspn(const char *str1, const char *str2): calculates the length of the initial segment of str1, which consists entirely of characters not in str2.
+	*/
 	cmdline += strspn(cmdline, " \t");
 	cmdlen = strcspn(cmdline, " \t");
+	/*
+	const char str1[] = "ABCDEFG019874";
+    const char str2[] = "ABCD";
+	len = strspn(str1, str2); //4
+
+	const char str1[] = "ABCDEF4960910";
+	const char str2[] = "013";	
+	len = strcspn(str1, str2); //9
+	*/
+	
 	if(cmdlen == 0) {
 		// The line was empty -- no command was given
 		send_prompt(cmdsocket);
@@ -408,13 +430,18 @@ static void setup_connection(int sockfd, struct sockaddr_in6 *remote_addr, struc
 
 	// Initialize a buffered I/O event
 	cmdsocket->buf_event = bufferevent_new(sockfd, cmd_read, NULL, cmd_error, cmdsocket);
+	/* struct bufferevent * bufferevent_new(int fd, evbuffercb readcb, evbuffercb writecb, everrorcb errorcb, void *cbarg);
+	Create a new bufferevent. 
+	*/
 	if(CHECK_NULL(cmdsocket->buf_event)) {
 		ERROR_OUT("Error initializing buffered I/O event for fd %d.\n", sockfd);
 		free_cmdsocket(cmdsocket);
 		return;
 	}
 	bufferevent_base_set(evloop, cmdsocket->buf_event);
+	//Assign a bufferevent to a specific event_base.
 	bufferevent_settimeout(cmdsocket->buf_event, 60, 0);
+	//void bufferevent_settimeout	(struct bufferevent * bufev,int timeout_read,int timeout_write)	
 	if(bufferevent_enable(cmdsocket->buf_event, EV_READ)) {
 		ERROR_OUT("Error enabling buffered I/O event for fd %d.\n", sockfd);
 		free_cmdsocket(cmdsocket);
@@ -578,9 +605,14 @@ int main(int argc, char *argv[])
 	which is a set of the following flags: EV_TIMEOUT, EV_SIGNAL, EV_READ, EV_WRITE and EV_PERSIST.
 	*/
 	event_base_set(evloop, &connect_event);
+	//Associates the event_base with the event.
 	if(event_add(&connect_event, NULL)) {
 		ERROR_OUT("Error scheduling connection event on the event loop.\n");
 	}
+	/*event_add() schedules the execution of the event when the event specified in event_set() occurs or in at least the time specified by the timeout argument. 
+	If timeout was not specified, not timeout is set. The event must be already initalized by event_set() and event_base_set() functions. 
+	If the event already has a timeout set, it is replaced by the new one.
+	*/
 
 
 	// Start the event loop
