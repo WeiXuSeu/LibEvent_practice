@@ -439,9 +439,13 @@ static void setup_connection(int sockfd, struct sockaddr_in6 *remote_addr, struc
 		return;
 	}
 	bufferevent_base_set(evloop, cmdsocket->buf_event);
+<<<<<<< Updated upstream
 	//Assign a bufferevent to a specific event_base.
 	bufferevent_settimeout(cmdsocket->buf_event, 60, 0);
 	//void bufferevent_settimeout	(struct bufferevent * bufev,int timeout_read,int timeout_write)	
+=======
+	bufferevent_settimeout(cmdsocket->buf_event, 600, 0);
+>>>>>>> Stashed changes
 	if(bufferevent_enable(cmdsocket->buf_event, EV_READ)) {
 		ERROR_OUT("Error enabling buffered I/O event for fd %d.\n", sockfd);
 		free_cmdsocket(cmdsocket);
