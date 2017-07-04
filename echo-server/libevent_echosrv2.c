@@ -27,6 +27,11 @@
  * SUCH DAMAGE.
  */
 
+/*read and write with buffer, first accept listen fd, when it's readable, 
+get the data, put it in buffer(a queue item), then add the write event, and
+wait for it to be traggered.
+*/
+
 /*
  * libevent echo server example.
  */
