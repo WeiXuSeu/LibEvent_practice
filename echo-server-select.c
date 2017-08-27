@@ -1,6 +1,4 @@
-/**
-    Handle multiple socket connections with select and fd_set on Linux
-*/
+/* Handle multiple socket connections with select and fd_set on Linux */
   
 #include <stdio.h>
 #include <string.h>   //strlen
@@ -28,12 +26,12 @@ int main(int argc , char *argv[])
     struct sockaddr_in address;
     char buffer[BUFFER_SIZE+1];  //data buffer of 1K
     struct timeval tv;
-    char quit[7]="quit\r\n";
+    char quit[7]="quit\r\n";     //for data from telnet client, the data end with "\r\n"
    
     //set of socket descriptors
     fd_set readfds;
       
-    //a message
+    //a message retuan to client when it connect to the server. 
     char *message = "ECHO Daemon v1.0 \r\n";
   
     //initialise all client_socket[] to 0 so not checked
@@ -81,7 +79,8 @@ int main(int argc , char *argv[])
     //accept the incoming connection
     addrlen = sizeof(address);
     puts("Waiting for connections ...");
-     
+    
+    /********************************call select in a infinite loop*******************************/ 
     while(TRUE) 
     {
         /*每次调用select前都要重新设置文件描述符和时间，因为事件发生后，文件描述符和时间都被内核修改啦*/
@@ -112,13 +111,15 @@ int main(int argc , char *argv[])
 	printf("\nselect begin, timeout left:%lds-%ldms.\n",tv.tv_sec,tv.tv_usec);
         //wait for an activity on one of the sockets, timeout is tv; 
         activity = select( max_sd + 1 , &readfds , NULL , NULL , &tv);
-    
+   	
+        //return value < 0, error happend; 
         if ((activity < 0) && (errno!=EINTR)) 
         {
             printf("select error");
         }
+	//return value = 0, timeout;
 	else if(activity == 0){
-	    //printf("select return, timeout left:%lds-%ldms.\n",tv.tv_sec,tv.tv_usec);
+	    //no event happend in specific time, timeout;
 	    printf("select return, activity:%d,  timeout left:%lds-%ldms.\n", activity, tv.tv_sec, tv.tv_usec);
 	    continue;
 	}
@@ -193,8 +194,8 @@ int main(int argc , char *argv[])
                     printf("data come from client:%s",buffer);
                     send(sd , buffer , strlen(buffer) , 0 );
                     memset(buffer,0,valread);
-		    printf("sleep 5s\n");
-		    sleep(5);
+		    //printf("sleep 5s\n");
+		    //sleep(5);
                 }
             }
         }
